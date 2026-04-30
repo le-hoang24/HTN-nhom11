@@ -1,22 +1,6 @@
 /*
  * ============================================================
  *  SMART GARDEN - ESP32 + FreeRTOS + Blynk + LCD I2C
- *  Ban refactor lai cho gon va on dinh hon
- * ============================================================
- *  Diem chinh da sua:
- *  1) Tach nhip doc DHT va doc analog
- *  2) Blynk.run() chay thuong xuyen, khong con 3 giay/lan
- *  3) Relay bom chay 10 giay roi tu tat
- *  4) PIR co khoa bom trong MOTION_BLOCK_MS
- *  5) Mai che luon tu dong theo anh sang, khong phu thuoc che do bom
- *  6) LCD hien canh bao khi PIR phat hien co nguoi
- *  7) Giam flicker LCD, giam log trung lap
- * ============================================================
- *  Thu vien can cai:
- *    - Blynk >= 1.3.2
- *    - DHT sensor library (Adafruit)
- *    - LiquidCrystal_I2C
- * ============================================================
  */
 
 #define BLYNK_TEMPLATE_ID   "TMPL6Dpx2jTxG"
@@ -37,7 +21,7 @@
  */
 
 // ============================================================
-//  BƯỚC 1: Điền thông tin Blynk & WiFi của bạn vào đây
+// thông tin Blynk & WiFi 
 // ============================================================
 
 #define WIFI_SSID           "PHUHANG"
@@ -69,15 +53,6 @@
 #define LCD_COLS          16
 #define LCD_ROWS          2
 
-// ============================================================
-//  RELAY POLARITY
-//  Neu relay cua ban la active LOW thi doi thanh:
-//    #define RELAY_ON_LEVEL    LOW
-//    #define RELAY_OFF_LEVEL   HIGH
-//  Cach dung:
-//    - RELAY_ON_LEVEL  = muc dien de BAT relay
-//    - RELAY_OFF_LEVEL = muc dien de TAT relay
-// ============================================================
 #define RELAY_ON_LEVEL    HIGH
 #define RELAY_OFF_LEVEL   LOW
 
