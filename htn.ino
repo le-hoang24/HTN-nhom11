@@ -8,8 +8,9 @@
  *  2) Blynk.run() chay thuong xuyen, khong con 3 giay/lan
  *  3) Relay bom chay 10 giay roi tu tat
  *  4) PIR co khoa bom trong MOTION_BLOCK_MS
- *  5) Mai che dung 2 nguong (hysteresis) de tranh dong/mo lien tuc
- *  6) Giam flicker LCD, giam log trung lap
+ *  5) Mai che luon tu dong theo anh sang, khong phu thuoc che do bom
+ *  6) LCD hien canh bao khi PIR phat hien co nguoi
+ *  7) Giam flicker LCD, giam log trung lap
  * ============================================================
  *  Thu vien can cai:
  *    - Blynk >= 1.3.2
@@ -70,7 +71,9 @@
 
 // ============================================================
 //  RELAY POLARITY
-//  Neu relay cua ban la active LOW thi doi 2 macro nay thanh 0 va 0?
+//  Neu relay cua ban la active LOW thi doi thanh:
+//    #define RELAY_ON_LEVEL    LOW
+//    #define RELAY_OFF_LEVEL   HIGH
 //  Cach dung:
 //    - RELAY_ON_LEVEL  = muc dien de BAT relay
 //    - RELAY_OFF_LEVEL = muc dien de TAT relay
@@ -257,7 +260,7 @@ BLYNK_WRITE(VPIN_MODE) {
     g_data.manualPumpCmd = false;
   }
   SHARED_UNLOCK();
-  Serial.printf("[Blynk] Mode = %s\n", mode ? "AUTO" : "MANUAL");
+  Serial.printf("[Blynk] Pump mode = %s\n", mode ? "AUTO" : "MANUAL");
 }
 
 BLYNK_WRITE(VPIN_PUMP_BTN) {
@@ -417,8 +420,9 @@ void pumpControlTask(void* pvParameters) {
 
 // ============================================================
 //  TASK: ROOF CONTROL
-//  - AUTO only
-//  - dung hysteresis de tranh dong/mo lien tuc
+//  - Mai che LUON tu dong theo anh sang
+//  - Khong phu thuoc V6 Pump Auto Mode
+//  - Dung hysteresis de tranh dong/mo lien tuc
 // ============================================================
 void roofControlTask(void* pvParameters) {
   Serial.println("[RoofTask] Started");
@@ -428,13 +432,16 @@ void roofControlTask(void* pvParameters) {
   for (;;) {
     SharedData_t snap = getSnapshot();
 
-    if (snap.autoMode) {
-      bool newRoofState = shouldCloseRoofByLight(snap.lightValue, roofState);
-      if (newRoofState != roofState) {
-        roofState = newRoofState;
-        setRoofRelay(roofState);
-        Serial.printf("[RoofTask] Roof %s (light=%d)\n", roofState ? "CLOSED" : "OPEN", snap.lightValue);
-      }
+    // V6 chi dieu khien che do AUTO/MANUAL cua bom.
+    // Mai che van tu dong dong/mo theo anh sang de bao ve cay.
+    bool newRoofState = shouldCloseRoofByLight(snap.lightValue, roofState);
+
+    if (newRoofState != roofState) {
+      roofState = newRoofState;
+      setRoofRelay(roofState);
+      Serial.printf("[RoofTask] Roof %s (light=%d)\n",
+                    roofState ? "CLOSED" : "OPEN",
+                    snap.lightValue);
     }
 
     SHARED_LOCK();
@@ -458,6 +465,19 @@ void displayTask(void* pvParameters) {
     char line0[17];
     char line1[17];
 
+    // Uu tien hien thi canh bao khi PIR phat hien co nguoi.
+    // Trong thoi gian nay bom bi khoa, LCD se hien canh bao thay vi cac trang thong so.
+    if (snap.motionBlocked) {
+      snprintf(line0, sizeof(line0), "CANH BAO NGUOI");
+      snprintf(line1, sizeof(line1), "Khoa bom:%lus", snap.motionBlockRemainingMs / 1000UL);
+
+      lcdPrintLine(0, line0);
+      lcdPrintLine(1, line1);
+
+      vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(PERIOD_LCD_MS));
+      continue;
+    }
+
     switch (page) {
       case 0:
         snprintf(line0, sizeof(line0), "T:%.1fC H:%.0f%%", snap.temperature, snap.humidity);
@@ -466,16 +486,12 @@ void displayTask(void* pvParameters) {
 
       case 1:
         snprintf(line0, sizeof(line0), "Light:%d", snap.lightValue);
-        snprintf(line1, sizeof(line1), "Mode:%s", snap.autoMode ? "AUTO" : "MANUAL");
+        snprintf(line1, sizeof(line1), "Pump:%s", snap.autoMode ? "AUTO" : "MANUAL");
         break;
 
       default:
         snprintf(line0, sizeof(line0), "P:%s R:%s", snap.pumpOn ? "ON" : "OFF", snap.roofClosed ? "CLS" : "OPN");
-        if (snap.motionBlocked) {
-          snprintf(line1, sizeof(line1), "Mot:%lus", snap.motionBlockRemainingMs / 1000UL);
-        } else {
-          snprintf(line1, sizeof(line1), "Cnt:%lu", (unsigned long)snap.motionCount);
-        }
+        snprintf(line1, sizeof(line1), "Cnt:%lu", (unsigned long)snap.motionCount);
         break;
     }
 
@@ -487,7 +503,6 @@ void displayTask(void* pvParameters) {
   }
 }
 
-// ============================================================
 //  TASK: BLYNK
 //  - Blynk.run() chay nhanh
 //  - Moi 1s moi gui du lieu 1 lan
@@ -557,7 +572,7 @@ void serialDebugTask(void* pvParameters) {
     Serial.printf("Soil ADC  : %d\n", s.soilAdc);
     Serial.printf("Soil %%    : %d %%\n", s.soilMoisturePct);
     Serial.printf("Light ADC : %d\n", s.lightValue);
-    Serial.printf("Mode      : %s\n", s.autoMode ? "AUTO" : "MANUAL");
+    Serial.printf("PumpMode  : %s\n", s.autoMode ? "AUTO" : "MANUAL");
     Serial.printf("Pump      : %s\n", s.pumpOn ? "ON" : "OFF");
     Serial.printf("Roof      : %s\n", s.roofClosed ? "CLOSED" : "OPEN");
     Serial.printf("MotionCnt : %lu\n", (unsigned long)s.motionCount);
@@ -614,9 +629,11 @@ void setup() {
   g_mutex = xSemaphoreCreateMutex();
   memset(&g_data, 0, sizeof(g_data));
   g_data.autoMode = true;
+  g_data.soilMoisturePct = 100;  // tranh bom ngay khi vua khoi dong, cho analogTask cap nhat
 
   // WiFi + Blynk
   WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);  // giam tre/mat ket noi Blynk tren ESP32
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.print("Connecting WiFi");
   for (int i = 0; i < 30 && WiFi.status() != WL_CONNECTED; ++i) {
@@ -651,7 +668,7 @@ void setup() {
   xTaskCreatePinnedToCore(serialDebugTask,  "DebugTask",     4096, NULL, PRIO_LOW,    NULL, CORE_0);
 
   lcdPrintLine(0, "System ready");
-  lcdPrintLine(1, "AUTO mode");
+  lcdPrintLine(1, "Pump AUTO mode");
   Serial.println("All tasks created");
 }
 
