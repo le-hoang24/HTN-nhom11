@@ -101,46 +101,7 @@ Dự án dùng các Virtual Pin sau:
 
 ---
 
-## Cách nạp chương trình
-1. Mở dự án trong **Arduino IDE**.
-2. Cài đầy đủ các thư viện cần thiết.
-3. Chọn đúng board: **DOIT ESP32 DEVKIT V1**.
-4. Chỉnh lại thông tin:
-   - `BLYNK_TEMPLATE_ID`
-   - `BLYNK_TEMPLATE_NAME`
-   - `BLYNK_AUTH_TOKEN`
-   - `WIFI_SSID`
-   - `WIFI_PASS`
-5. Nạp code vào ESP32.
-6. Mở **Serial Monitor** để kiểm tra hoạt động.
-
 ---
-
-## Gợi ý hiệu chỉnh
-### Cảm biến độ ẩm đất
-Cần hiệu chỉnh lại các giá trị:
-- `SOIL_ADC_DRY`
-- `SOIL_ADC_WET`
-
-### Cảm biến ánh sáng
-Cần theo dõi giá trị ADC thực tế rồi chỉnh:
-- `LIGHT_BRIGHT_IS_HIGH`
-- `LIGHT_CLOSE_THRESHOLD`
-- `LIGHT_OPEN_THRESHOLD`
-
-### PIR
-Có thể cần chỉnh lại:
-- độ nhạy
-- thời gian giữ tín hiệu
-- vị trí đặt cảm biến
-
----
-
-## Lưu ý khi public lên GitHub
-Nếu bạn để repo ở chế độ **public**, nên:
-- Xóa hoặc ẩn **WiFi SSID / mật khẩu WiFi**
-- Xóa hoặc đổi mới **Blynk Auth Token**
-- Không đưa thông tin nhạy cảm trực tiếp vào mã nguồn
 
 ---
 
